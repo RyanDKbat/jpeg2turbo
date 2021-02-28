@@ -1,0 +1,77 @@
+
+#include<stdio.h>
+#include<math.h>
+#define SIZE 8
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h" 
+#include "malloc.h"
+#include <time.h>
+#include <iostream>
+int RSC(int a, int* t1, int* t2)  //分量编码器//
+{
+    int b, c;
+    b = a ^ *t1 ^ *t2;
+    c = b ^ *t2;
+    *t2 = *t1;
+    *t1 = b;
+    return(c);
+}
+int main()
+{
+    int u[SIZE], u1[SIZE], c0[SIZE], c1[SIZE], c2[SIZE], c[SIZE][2];
+    int i, j, * p1, * p2, k, k1, k2,n;
+    int pic_size;
+    int* dataA = (int*)malloc(sizeof(int) * 250000);
+    int* dataB = (int*)malloc(sizeof(int) * 250000);
+    int* dataC = (int*)malloc(sizeof(int) * 250000);
+    k1 = 0; k2 = 0; k = 0;
+    p1 = &k1; p2 = &k2;
+    FILE* fw_pic = fopen("E:\\matin\\visual studio projects\\turbo_encode\\size.txt", "r");
+    fscanf(fw_pic, "%d", &pic_size);    //读取图片大小
+    fclose(fw_pic);
+
+    FILE* fw = fopen("E:\\matin\\visual studio projects\\turbo_encode\\red_data.txt", "r");
+    for (j = 0; j < pic_size; j++)
+        fscanf(fw, "%d", &dataA[j]);
+    fclose(fw);           //读取red
+    for (j = 0; j < 250000; j++)//red中的j个数据
+    {
+        for (i = 7; i >= 0; i--)
+        {
+            u[i] = dataA[j] % 10;
+            dataA[j] /= 10;
+        }                      //拆位
+        for (i = 0; i < SIZE; i++)    //未经交织的信息序列经分量编码器后的系统输出和校验输出//
+        {
+            c0[i] = u[i];
+            c1[i] = RSC(u[i], p1, p2);
+        }
+        for (i = 0; i < SIZE; i++)    //倒叙交织器
+        {
+            u1[i] = u[SIZE - 1 - i];
+        }
+        p1 = &k1; p2 = &k2;     //移位寄存器置零//
+        for (i = 0; i < SIZE; i++)    //交织后的信息序列经分量编码器后的校验输出//
+            c2[i] = RSC(u1[i], p1, p2);
+        for (i = 0; i < SIZE; i++)    //经删余矩阵复接//
+            for (n = 0; n < 2; n++)
+                if (j == 0)
+                    c[i][n] = c0[i];
+                else
+                {
+                    if (i % 2 == 0)
+                        c[i][n] = c1[i];
+                    else
+                        c[i][n] = c2[i];
+                }
+        for (i = 0; i < SIZE; i++)    //输出编码后的码字//
+        {
+            for (n = 0; n < 2; n++)
+                printf("%d", c[i][n]);
+            printf("\t");
+        }
+    }
+    free(dataA);
+    free(dataB);
+    free(dataC);
+}
